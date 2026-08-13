@@ -1,0 +1,55 @@
+.container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-xxl);
+}
+
+@media (min-width: 768px) {
+  .container {
+    grid-template-columns: 1fr 320px;
+  }
+}
+
+.article {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-body);
+}
+
+.article h1, .article h2, .article h3 {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.article h1 { font-size: 36px; letter-spacing: -0.5px; }
+.article h2 { font-size: 28px; letter-spacing: -0.3px; }
+.article h3 { font-size: 22px; font-family: var(--font-sans); font-weight: 500; }
+
+.article p {
+  margin-bottom: 1em;
+}
+
+.article ul, .article ol {
+  margin-bottom: 1em;
+  padding-left: 20px;
+}
+
+.article li {
+  margin-bottom: 0.5em;
+}
+
+.article a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.article a:hover {
+  text-decoration: underline;
+}
+
+.article strong {
+  color: var(--color-body-strong);
+  font-weight: 500;
+}
