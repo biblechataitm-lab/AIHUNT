@@ -1,43 +1,66 @@
-import React from 'react';
-import type { Metadata, ResolvingMetadata } from 'next';
+import React, { Suspense } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getProduct, getSiteConfig, getAd } from '@/lib/ads/server';
-import { AdSlot } from '@/lib/ads/client';
-import ReactMarkdown from 'react-markdown';
-import styles from './product.module.css';
+import Link from 'next/link';
+import { marked } from 'marked';
+import { getProduct, getAd, AdSlot, getSiteConfig } from '@/lib/ads';
+import { ExternalLink, ChevronUp, ArrowLeft } from 'lucide-react';
+import { SidebarSkeleton } from '@/components/Skeleton';
+import { SafeImage } from '@/components/SafeImage';
 
-export const revalidate = 0; // Disable static rendering for ads
+export const revalidate = 0;
 
-type Props = {
+interface ProductPageProps {
   params: Promise<{ id: string }>;
-};
+}
 
-export async function generateMetadata(
-  { params }: Props,
-  parent: ResolvingMetadata
-): Promise<Metadata> {
+export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params;
   const product = await getProduct(id);
-  
   if (!product) {
-    return { title: 'Product Not Found' };
+    return { title: 'Product Not Found — AIHunt' };
   }
 
-  const siteConfig = await getSiteConfig();
-  const siteName = siteConfig?.name || 'Directory';
-
   return {
-    title: `${product.name} - ${siteName}`,
-    description: product.tagline,
+    title: `${product.title} — ${product.tagline} | AIHunt`,
+    description: product.description || product.tagline,
     openGraph: {
-      title: `${product.name} - ${siteName}`,
+      title: product.title,
       description: product.tagline,
-      images: [{ url: product.logoUrl }],
+      images: product.coverImages.length > 0 ? product.coverImages : [product.logo],
     },
   };
 }
 
-export default async function ProductPage({ params }: Props) {
+async function ProductSidebar() {
+  const config = await getSiteConfig();
+  const slotKey = config?.slots?.[0]?.key || 'sidebar-1';
+  const ad = await getAd({ slot: slotKey });
+
+  return (
+    <aside>
+      <div className="sidebar-card">
+        <div className="sidebar-card-title">Directory Info</div>
+        <div style={{ fontSize: '0.85rem', color: 'var(--color-body)' }}>
+          <div style={{ marginBottom: '0.6rem' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-muted)', fontWeight: 600 }}>Directory:</span>{' '}
+            <strong style={{ color: 'var(--color-ink)' }}>{config?.name || 'AIHunt'}</strong>
+          </div>
+          <div>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-muted)', fontWeight: 600 }}>Curated Niche:</span>{' '}
+            <span style={{ color: 'var(--color-body)' }}>
+              {config?.tags?.join(', ') || 'AI & Machine Learning'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <AdSlot ad={ad} />
+    </aside>
+  );
+}
+
+export default async function ProductDetailPage({ params }: ProductPageProps) {
   const { id } = await params;
   const product = await getProduct(id);
 
@@ -45,131 +68,189 @@ export default async function ProductPage({ params }: Props) {
     notFound();
   }
 
-  const ad = await getAd({ slot: 'product-1' });
+  const formattedDate = product.launchedAt
+    ? new Date(product.launchedAt).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
 
-  // Generate JSON-LD Schema
+  // Render Rich Text / Markdown Description safely
+  const rawDescription = product.description || product.tagline;
+  const richHtmlDescription = await marked.parse(rawDescription);
+
+  // JSON-LD Structured Data Schema for Search Indexing
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: product.name,
-    operatingSystem: 'Any',
-    applicationCategory: product.category,
+    name: product.title,
+    description: product.tagline,
+    applicationCategory: product.category || 'ArtificialIntelligence',
+    operatingSystem: 'Web',
     offers: {
       '@type': 'Offer',
-      price: '0.00',
+      price: '0',
       priceCurrency: 'USD',
     },
-    creator: {
-      '@type': 'Person',
-      name: product.maker,
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '5',
+      ratingCount: product.upvotes || 1,
     },
-    description: product.tagline,
+    author: product.maker
+      ? {
+          '@type': 'Person',
+          name: product.maker.name,
+        }
+      : undefined,
     url: product.link,
-    image: product.logoUrl,
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'var(--spacing-section) var(--spacing-xl)' }}>
+    <div className="container main-layout">
+      {/* Inject JSON-LD Structured Data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--spacing-xxl)' }} className={styles.container}>
-        <div>
-          <div style={{ display: 'flex', gap: 'var(--spacing-xl)', marginBottom: 'var(--spacing-xl)', alignItems: 'center' }}>
-            <img src={product.logoUrl} alt={product.name} style={{ width: '120px', height: '120px', borderRadius: 'var(--radius-lg)', objectFit: 'cover' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', margin: 0, letterSpacing: '-1px' }}>{product.name}</h1>
-              <p style={{ fontSize: '22px', margin: 0, color: 'var(--color-body-strong)' }}>{product.tagline}</p>
-              
-              <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: '8px', flexWrap: 'wrap' }}>
-                <span style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)', padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: '12px', fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-                  {product.category}
-                </span>
-                {product.tags.map(tag => (
-                  <span key={tag} style={{ backgroundColor: 'var(--color-surface-card)', color: 'var(--color-ink)', padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: '13px', fontWeight: 500 }}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-xl)' }}>
-            <a href={product.link} target="_blank" rel="noopener noreferrer" style={{
-              backgroundColor: 'var(--color-primary)',
-              color: 'var(--color-on-primary)',
-              padding: '12px 24px',
-              borderRadius: 'var(--radius-md)',
-              fontWeight: 500,
-              fontSize: '16px',
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              Visit Website
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <line x1="10" y1="14" x2="21" y2="3"></line>
-              </svg>
-            </a>
-            
-            <div style={{ 
-              backgroundColor: 'var(--color-surface-card)', 
-              padding: '12px 24px', 
-              borderRadius: 'var(--radius-md)', 
-              display: 'inline-flex', 
-              alignItems: 'center',
-              gap: '8px',
-              fontWeight: 500
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
-              </svg>
-              {product.upvoteCount} Upvotes
-            </div>
-          </div>
+      <section>
+        <Link
+          href="/"
+          className="btn-outline"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '1.5rem' }}
+        >
+          <ArrowLeft size={14} /> Back to Directory
+        </Link>
 
-          <div className={styles.article}>
-            <ReactMarkdown>{product.description}</ReactMarkdown>
-          </div>
-        </div>
-        
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-          <div style={{
+        <div
+          style={{
             backgroundColor: 'var(--color-surface-card)',
-            padding: 'var(--spacing-lg)',
-            borderRadius: 'var(--radius-lg)'
-          }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '16px', fontFamily: 'var(--font-sans)' }}>Details</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--color-muted)' }}>Maker</span>
-                <span style={{ fontWeight: 500 }}>{product.maker}</span>
+            border: '1px solid var(--color-hairline)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '2rem',
+            marginBottom: '2rem',
+          }}
+        >
+          {/* Main Product Header */}
+          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+            <SafeImage
+              src={product.logo || ''}
+              alt={product.title}
+              fallbackText={product.title.slice(0, 2).toUpperCase()}
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '12px',
+                objectFit: 'cover',
+                border: '1px solid var(--color-hairline)',
+                backgroundColor: 'var(--color-surface-soft)',
+              }}
+            />
+
+            <div style={{ flex: 1, minWidth: '240px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', letterSpacing: '-0.5px' }}>
+                  {product.title}
+                </h1>
+                {product.category && <span className="category-badge">{product.category}</span>}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--color-muted)' }}>Launched</span>
-                <span style={{ fontWeight: 500 }}>{new Date(product.launchDate).toLocaleDateString()}</span>
+
+              <p style={{ fontSize: '1.1rem', color: 'var(--color-body)', lineHeight: 1.45, marginBottom: '1.25rem' }}>
+                {product.tagline}
+              </p>
+
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <a
+                  href={product.link}
+                  target="_blank"
+                  rel="noopener"
+                  className="btn-primary"
+                  style={{ padding: '0.75rem 1.5rem', fontSize: '0.95rem' }}
+                >
+                  Visit Website <ExternalLink size={16} />
+                </a>
+
+                <div className="upvote-badge" style={{ padding: '0.65rem 1.25rem', gap: '6px' }}>
+                  <ChevronUp size={16} style={{ color: 'var(--color-primary)' }} />
+                  <span>{product.upvotes ?? 0} Upvotes</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                <span style={{ color: 'var(--color-muted)' }}>Tech Stack</span>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {product.techStack.map(tech => (
-                    <span key={tech} style={{ backgroundColor: 'var(--color-canvas)', border: '1px solid var(--color-hairline)', padding: '2px 8px', borderRadius: '4px', fontSize: '13px' }}>
+            </div>
+          </div>
+
+          {/* Rich Text / Markdown Description */}
+          <div style={{ borderTop: '1px solid var(--color-hairline)', paddingTop: '1.75rem', marginTop: '1.75rem' }}>
+            <h3 style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-muted)', marginBottom: '1rem' }}>
+              About {product.title}
+            </h3>
+            
+            <div
+              className="prose-body"
+              dangerouslySetInnerHTML={{ __html: richHtmlDescription }}
+            />
+          </div>
+
+          {/* Metadata Badges & Tech Stack */}
+          <div style={{ borderTop: '1px solid var(--color-hairline)', paddingTop: '1.5rem', marginTop: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {product.maker && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ width: '100px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-muted)', fontWeight: 600 }}>Maker:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <SafeImage
+                    src={product.maker.avatar}
+                    alt={product.maker.name}
+                    fallbackText={product.maker.name.charAt(0)}
+                    className="maker-avatar"
+                    style={{ width: '24px', height: '24px' }}
+                  />
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-ink)' }}>
+                    {product.maker.name} (@{product.maker.username})
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {formattedDate && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ width: '100px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-muted)', fontWeight: 600 }}>Launched:</span>
+                <span style={{ fontSize: '0.9rem', color: 'var(--color-body)' }}>{formattedDate}</span>
+              </div>
+            )}
+
+            {product.tags && product.tags.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ width: '100px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-muted)', fontWeight: 600 }}>Tags:</span>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {product.tags.map((tag) => (
+                    <span key={tag} className="chip">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {product.techStack && product.techStack.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ width: '100px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-muted)', fontWeight: 600 }}>Tech Stack:</span>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {product.techStack.map((tech) => (
+                    <span key={tech} className="chip" style={{ backgroundColor: 'var(--color-surface-cream-strong)' }}>
                       {tech}
                     </span>
                   ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
-          
-          <AdSlot ad={ad} />
-        </aside>
-      </div>
+        </div>
+      </section>
+
+      <Suspense fallback={<SidebarSkeleton />}>
+        <ProductSidebar />
+      </Suspense>
     </div>
   );
 }

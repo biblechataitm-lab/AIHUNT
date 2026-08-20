@@ -1,39 +1,66 @@
 import React, { Suspense } from 'react';
-import { getProducts } from '@/lib/ads/server';
-import ProductList from '@/components/ProductList';
-import Categories from '@/components/Categories';
-import styles from '../page.module.css';
+import type { Metadata } from 'next';
+import { getProducts } from '@/lib/ads';
+import { CategoryChips } from '@/components/CategoryChips';
+import { ProductListWithPagination } from '@/components/ProductListWithPagination';
+import { Sidebar } from '@/components/Sidebar';
+import { ProductListSkeleton, SidebarSkeleton } from '@/components/Skeleton';
 
 export const revalidate = 0;
 
-export const metadata = {
-  title: 'Search Results - AIHunt',
-};
-
-type Props = {
+interface SearchPageProps {
   searchParams: Promise<{ q?: string }>;
-};
-
-async function SearchResults({ q }: { q: string }) {
-  const products = await getProducts({ q });
-  return <ProductList products={products} />;
 }
 
-export default async function SearchPage({ searchParams }: Props) {
+export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
   const { q } = await searchParams;
-  const query = q || '';
+  return {
+    title: q ? `Search results for "${q}" — AIHunt` : 'Search AI Tools & Software — AIHunt',
+    description: `Discover AI tools and software matching "${q || ''}".`,
+  };
+}
+
+async function SearchFeed({ q }: { q?: string }) {
+  const { products, nextCursor } = await getProducts({ q });
 
   return (
-    <div className={styles.container}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-        <Categories />
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '48px', margin: 0, letterSpacing: '-1px' }}>
-          Search Results for "{query}"
-        </h1>
-        <Suspense fallback={<div style={{ height: '200px' }}>Loading...</div>}>
-          <SearchResults q={query} />
+    <ProductListWithPagination
+      initialProducts={products}
+      initialNextCursor={nextCursor}
+      fetchOptions={{ q }}
+      emptyTitle={`No results for "${q || ''}"`}
+      emptyDescription="Try searching for another keyword or browse our categories."
+    />
+  );
+}
+
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const { q } = await searchParams;
+
+  return (
+    <div className="container main-layout">
+      <section>
+        <CategoryChips />
+
+        <div className="section-header">
+          <div>
+            <h1 className="section-title">
+              {q ? `Search: "${q}"` : 'All Search Results'}
+            </h1>
+            <p className="section-subtitle">
+              {q ? `Browsing AI products matching "${q}"` : 'Browse all curated directory entries'}
+            </p>
+          </div>
+        </div>
+
+        <Suspense fallback={<ProductListSkeleton count={4} />}>
+          <SearchFeed q={q} />
         </Suspense>
-      </div>
+      </section>
+
+      <Suspense fallback={<SidebarSkeleton />}>
+        <Sidebar />
+      </Suspense>
     </div>
   );
 }

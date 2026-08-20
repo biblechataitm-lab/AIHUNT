@@ -1,18 +1,16 @@
+import React from 'react';
 import type { Metadata } from 'next';
-import { getSiteConfig } from '@/lib/ads';
 import { notFound } from 'next/navigation';
+import { getSiteConfig } from '@/lib/ads';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
+import { Maintenance } from '@/components/Maintenance';
 import './globals.css';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import MaintenancePage from '@/components/MaintenancePage';
 
-export async function generateMetadata(): Promise<Metadata> {
-  const config = await getSiteConfig();
-  return {
-    title: config?.name || 'Product Directory',
-    description: config?.description || 'Discover new products.',
-  };
-}
+export const metadata: Metadata = {
+  title: 'AIHunt — Discover Premier AI Tools & Software',
+  description: 'The product launch directory for modern AI tools, agentic frameworks, and maker software.',
+};
 
 export default async function RootLayout({
   children,
@@ -21,28 +19,31 @@ export default async function RootLayout({
 }) {
   const config = await getSiteConfig();
 
+  // Operational status handling
   if (config?.status === 'disabled') {
     notFound();
   }
 
   if (config?.status === 'maintenance') {
     return (
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body>
-          <MaintenancePage message={config.statusMessage} />
+          <Maintenance message={config.statusMessage} />
         </body>
       </html>
     );
   }
 
+  const siteName = config?.name || 'AIHunt';
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <Header siteName={config?.name} />
-        <main style={{ minHeight: 'calc(100vh - 128px)' }}>
-          {children}
-        </main>
-        <Footer />
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Header siteName={siteName} />
+          <main style={{ flex: 1 }}>{children}</main>
+          <Footer siteName={siteName} />
+        </div>
       </body>
     </html>
   );
