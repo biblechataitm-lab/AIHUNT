@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, Bot, Cpu, Zap, ArrowRight, CheckCircle2, Search, Sliders, ShieldCheck } from 'lucide-react';
+import { Sparkles, Bot, Cpu, Zap, ArrowRight, CheckCircle2, Search, Sliders, ShieldCheck, Star, Users, Copy, Check } from 'lucide-react';
 
 const AI_MODELS = [
   {
@@ -40,15 +40,26 @@ const AI_MODELS = [
 export function HeroSection() {
   const [selectedModel, setSelectedModel] = useState(AI_MODELS[0]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(selectedModel.sampleOutput);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <section className="editorial-hero">
+      {/* Subtle background ambient mesh */}
+      <div className="hero-ambient-glow" />
+
       <div className="editorial-hero-grid">
         {/* Left Column: Contextual Value Proposition */}
         <div className="editorial-hero-content">
           <div className="editorial-badge">
             <span className="editorial-badge-dot"></span>
             <span className="editorial-badge-text">Curated Frontier AI Directory • 2026 Edition</span>
+            <span className="editorial-badge-highlight">LIVE</span>
           </div>
 
           <h1 className="editorial-title">
@@ -82,6 +93,35 @@ export function HeroSection() {
               Search AI
             </button>
           </form>
+
+          {/* Action CTAs */}
+          <div className="editorial-cta-row">
+            <Link href="/category/ai" className="editorial-primary-btn">
+              Explore 1,480+ AI Tools <ArrowRight size={15} />
+            </Link>
+            <Link href="/submit" className="editorial-secondary-btn">
+              Submit Your Product
+            </Link>
+          </div>
+
+          {/* Social Proof Stack */}
+          <div className="editorial-social-proof">
+            <div className="avatar-stack">
+              <span className="avatar av-1">🤖</span>
+              <span className="avatar av-2">⚡</span>
+              <span className="avatar av-3">🧠</span>
+              <span className="avatar av-4">✨</span>
+            </div>
+            <div className="proof-text-group">
+              <div className="proof-stars">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} size={12} className="fill-amber-500 text-amber-500" />
+                ))}
+                <span className="proof-rating">4.9/5</span>
+              </div>
+              <span className="proof-subtext">Trusted by 64,000+ AI engineers and founders</span>
+            </div>
+          </div>
 
           {/* Contextual Topics & Tags */}
           <div className="editorial-tags-row">
@@ -172,7 +212,15 @@ export function HeroSection() {
             <div className="model-output-window">
               <div className="model-output-bar">
                 <span className="model-output-tag">SYNTHESIZED AGENT INFERENCE</span>
-                <span className="model-output-state">Deterministic • 0.2 Temp</span>
+                <button 
+                  onClick={handleCopy} 
+                  className="model-copy-btn"
+                  title="Copy Output"
+                  type="button"
+                >
+                  {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                </button>
               </div>
               <pre className="model-output-content">
                 <code>{selectedModel.sampleOutput}</code>
