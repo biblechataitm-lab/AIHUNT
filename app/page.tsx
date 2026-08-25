@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import { getProducts } from '@/lib/ads';
+import { HeroSection } from '@/components/HeroSection';
 import { CategoryChips } from '@/components/CategoryChips';
 import { ProductListWithPagination } from '@/components/ProductListWithPagination';
 import { Sidebar } from '@/components/Sidebar';
@@ -25,11 +26,12 @@ export default function HomePage() {
   return (
     <div className="container main-layout">
       <section>
+        <HeroSection />
         <CategoryChips />
 
         <div className="section-header">
           <div>
-            <h1 className="section-title">Today's Launches</h1>
+            <h2 className="section-title">Today's Launches</h2>
             <p className="section-subtitle">
               Discover the latest AI tools, models, and software launched today
             </p>
@@ -47,3 +49,4 @@ export default function HomePage() {
     </div>
   );
 }
+
